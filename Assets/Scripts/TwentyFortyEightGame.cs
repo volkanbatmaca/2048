@@ -390,7 +390,7 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
 
         var undoLabel = freeUndosUsed < FreeUndoLimit
             ? "Geri al (" + (FreeUndoLimit - freeUndosUsed) + ")"
-            : "Reklamla geri al";
+            : "İzle +1";
         var undoRect = new Rect(boardRect.center.x - 72f, boardRect.yMax + 36f, 144f, 42f);
         if (DrawStyledButton(undoRect, undoLabel))
             RequestUndo();
