@@ -39,6 +39,7 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
             return;
 
         var gameObject = new GameObject("2048 Game");
+        gameObject.AddComponent<AdMobRewardedAdProvider>();
         gameObject.AddComponent<TwentyFortyEightGame>();
     }
 
@@ -234,6 +235,8 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
             isShowingRewardedAd = false;
             if (rewardEarned)
                 ApplyUndo();
+            else
+                adNotice = "Reklam tamamlanmadı. Geri alma kullanılmadı.";
         });
     }
 
@@ -243,6 +246,18 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
         for (var i = 0; i < behaviours.Length; i++)
         {
             if (behaviours[i] is IRewardedAdProvider provider)
+                return provider;
+        }
+
+        return null;
+    }
+
+    private static IPrivacyOptionsProvider FindPrivacyOptionsProvider()
+    {
+        var behaviours = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+        for (var i = 0; i < behaviours.Length; i++)
+        {
+            if (behaviours[i] is IPrivacyOptionsProvider provider)
                 return provider;
         }
 
@@ -347,23 +362,26 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
         EnsureStyles();
         DrawSolidRect(new Rect(0, 0, Screen.width, Screen.height), HexColor("F2F5F0"));
 
-        var boardSize = Mathf.Min(Screen.width - 32f, Screen.height * 0.58f, 520f);
+        var privacyOptionsProvider = FindPrivacyOptionsProvider();
+        var showPrivacyOptions = privacyOptionsProvider != null && privacyOptionsProvider.IsPrivacyOptionsRequired;
+        var footerHeight = showPrivacyOptions ? 258f : 216f;
+        var boardSize = Mathf.Min(Screen.width - 32f, Screen.height - footerHeight, 520f);
         boardSize = Mathf.Max(0, boardSize);
         titleStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(boardSize * 0.14f), 20, 58);
         headerStyle.fontSize = titleStyle.fontSize;
         overlayStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(boardSize / 16f), 14, 24);
-        var contentHeight = 204f + boardSize;
+        var contentHeight = footerHeight + boardSize;
         var top = Mathf.Max(12f, (Screen.height - contentHeight) / 2f);
-        var boardRect = new Rect((Screen.width - boardSize) / 2f, top + 82f, boardSize, boardSize);
+        var boardRect = new Rect((Screen.width - boardSize) / 2f, top + 94f, boardSize, boardSize);
 
         var titleWidth = boardSize * 0.34f;
         var scoreWidth = (boardSize - titleWidth - 12f) / 2f;
         GUI.Label(new Rect(boardRect.x, top, titleWidth, 54f), "2048", headerStyle);
 
-        DrawScorePanel(new Rect(boardRect.x + titleWidth + 4f, top + 2f, scoreWidth, 50f), "SKOR", score);
-        DrawScorePanel(new Rect(boardRect.x + titleWidth + scoreWidth + 8f, top + 2f, scoreWidth, 50f), "EN İYİ", bestScore);
+        DrawScorePanel(new Rect(boardRect.x + titleWidth + 4f, top + 2f, scoreWidth, 62f), "SKOR", score);
+        DrawScorePanel(new Rect(boardRect.x + titleWidth + scoreWidth + 8f, top + 2f, scoreWidth, 62f), "EN İYİ", bestScore);
 
-        GUI.Label(new Rect(boardRect.x, top + 53f, boardSize, 24f),
+        GUI.Label(new Rect(boardRect.x, top + 65f, boardSize, 24f),
             "Aynı sayıları birleştir, 2048'e ulaş!", labelStyle);
 
         DrawBoard(boardRect);
@@ -380,6 +398,13 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
         var newGameRect = new Rect(boardRect.center.x - 72f, boardRect.yMax + 82f, 144f, 42f);
         if (DrawStyledButton(newGameRect, "Yeni oyun"))
             NewGame();
+
+        if (showPrivacyOptions)
+        {
+            var privacyRect = new Rect(boardRect.center.x - 96f, boardRect.yMax + 128f, 192f, 32f);
+            if (GUI.Button(privacyRect, "Gizlilik ayarları", labelStyle))
+                privacyOptionsProvider.ShowPrivacyOptions();
+        }
     }
 
     private void DrawBoard(Rect boardRect)
@@ -436,9 +461,9 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
     {
         DrawSolidRect(rect, HexColor("B7C8BE"));
         GUI.Label(new Rect(rect.x, rect.y + 5f, rect.width, 22f), heading, labelStyle);
-        tileLabelStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(rect.width / 5.5f), 12, 22);
+        tileLabelStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(rect.width / 4.8f), 14, 24);
         tileLabelStyle.normal.textColor = HexColor("4B6256");
-        GUI.Label(new Rect(rect.x, rect.y + 26f, rect.width, 30f), value.ToString(), tileLabelStyle);
+        GUI.Label(new Rect(rect.x + 2f, rect.y + 25f, rect.width - 4f, 34f), value.ToString(), tileLabelStyle);
     }
 
     private void DrawSolidRect(Rect rect, Color color)
@@ -565,4 +590,10 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
 public interface IRewardedAdProvider
 {
     void ShowRewardedAd(System.Action<bool> onCompleted);
+}
+
+public interface IPrivacyOptionsProvider
+{
+    bool IsPrivacyOptionsRequired { get; }
+    void ShowPrivacyOptions();
 }
