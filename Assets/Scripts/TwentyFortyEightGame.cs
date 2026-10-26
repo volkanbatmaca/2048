@@ -45,6 +45,7 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
         { "resume", new[] { "Oyuna dön", "Return to game", "Volver al juego", "Reprendre la partie", "Zurück zum Spiel" } },
         { "newGame", new[] { "Yeni oyun", "New game", "Nueva partida", "Nouvelle partie", "Neues Spiel" } },
         { "leaderboard", new[] { "Liderlik tablosu", "Leaderboard", "Clasificación", "Classement", "Bestenliste" } },
+        { "leaderboardShort", new[] { "Skorlar", "Scores", "Puntos", "Scores", "Punkte" } },
         { "settings", new[] { "Ayarlar", "Settings", "Ajustes", "Paramètres", "Einstellungen" } },
         { "howToPlay", new[] { "Nasıl oynanır?", "How to play", "Cómo jugar", "Comment jouer", "So wird gespielt" } },
         { "back", new[] { "Geri", "Back", "Volver", "Retour", "Zurück" } },
@@ -79,13 +80,13 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
 
     private readonly int[,] board = new int[Size, Size];
     private readonly List<GameSnapshot> undoHistory = new List<GameSnapshot>();
+    private readonly List<GamePage> pageHistory = new List<GamePage>();
     private int score;
     private int bestScore;
     private int languageIndex;
     private int themeIndex;
     private int freeUndosUsed;
     private GamePage currentPage = GamePage.Menu;
-    private GamePage previousPage = GamePage.Menu;
     private bool gameOver;
     private bool hasWon;
     private bool continuedAfterWin;
@@ -142,17 +143,19 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
     private void ReadKeyboardInput()
     {
         var keyboard = Keyboard.current;
-        if (keyboard == null)
-            return;
+        var backPressed = keyboard != null && keyboard.escapeKey.wasPressedThisFrame;
+#if ENABLE_LEGACY_INPUT_MANAGER
+        backPressed |= Input.GetKeyDown(KeyCode.Escape);
+#endif
 
-        if (keyboard.escapeKey.wasPressedThisFrame)
+        if (backPressed)
         {
-            if (currentPage == GamePage.Game)
-                currentPage = GamePage.Menu;
-            else if (currentPage != GamePage.Menu)
-                currentPage = previousPage;
+            NavigateBack();
             return;
         }
+
+        if (keyboard == null)
+            return;
 
         if (currentPage != GamePage.Game)
             return;
@@ -496,48 +499,70 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
     {
         var privacyOptionsProvider = FindPrivacyOptionsProvider();
         var showPrivacyOptions = privacyOptionsProvider != null && privacyOptionsProvider.IsPrivacyOptionsRequired;
-        var footerHeight = showPrivacyOptions ? 258f : 216f;
+        var footerHeight = showPrivacyOptions ? 352f : 310f;
         var boardSize = Mathf.Min(Screen.width - 32f, Screen.height - footerHeight, 520f);
         boardSize = Mathf.Max(0, boardSize);
         titleStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(boardSize * 0.14f), 20, 58);
         headerStyle.fontSize = titleStyle.fontSize;
         overlayStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(boardSize / 16f), 14, 24);
+        buttonStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(boardSize / 15f), 17, 24);
+        labelStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(boardSize / 22f), 14, 20);
         var contentHeight = footerHeight + boardSize;
         var top = Mathf.Max(12f, (Screen.height - contentHeight) / 2f);
-        var boardRect = new Rect((Screen.width - boardSize) / 2f, top + 94f, boardSize, boardSize);
+        var boardRect = new Rect((Screen.width - boardSize) / 2f, top, boardSize, boardSize);
+        var spacing = boardSize * 0.018f;
+        var headerTileSize = (boardSize - spacing * (Size + 1)) / Size;
+        var titleRect = new Rect(boardRect.x, top, headerTileSize, headerTileSize);
+        var firstScoreX = boardRect.x + headerTileSize + spacing;
+        var scoreRect = new Rect(firstScoreX, top, headerTileSize, headerTileSize);
+        var bestRect = new Rect(firstScoreX + headerTileSize + spacing, top, headerTileSize, headerTileSize);
+        var titleBadgeStyle = new GUIStyle(headerStyle)
+        {
+            alignment = TextAnchor.MiddleCenter,
+            fontSize = Mathf.Clamp(Mathf.RoundToInt(headerTileSize * 0.36f), 20, 38),
+            normal = { textColor = ThemeText() }
+        };
+        DrawSolidRect(titleRect, ThemePanel());
+        GUI.Label(titleRect, "2048", titleBadgeStyle);
+        DrawScorePanel(scoreRect, Text("score"), score);
+        DrawScorePanel(bestRect, Text("best"), bestScore);
 
-        var titleWidth = boardSize * 0.3f;
-        var menuWidth = Mathf.Clamp(boardSize * 0.12f, 30f, 40f);
-        var scoreWidth = (boardSize - titleWidth - menuWidth - 16f) / 2f;
-        GUI.Label(new Rect(boardRect.x, top, titleWidth, 54f), "2048", headerStyle);
+        var headerButtonWidth = headerTileSize;
+        var headerButtonHeight = Mathf.Clamp(headerTileSize * 0.38f, 30f, 42f);
+        var headerButtonY = top + headerTileSize + spacing;
+        var originalButtonFontSize = buttonStyle.fontSize;
+        buttonStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(headerTileSize * 0.18f), 10, 14);
+        if (DrawStyledButton(new Rect(scoreRect.x, headerButtonY, headerButtonWidth, headerButtonHeight), Text("menu")))
+            NavigateTo(GamePage.Menu);
+        if (DrawStyledButton(new Rect(bestRect.x, headerButtonY, headerButtonWidth, headerButtonHeight), Text("leaderboardShort")))
+        {
+            leaderboardStatus = null;
+            NavigateTo(GamePage.Leaderboard);
+        }
+        buttonStyle.fontSize = originalButtonFontSize;
 
-        if (DrawStyledButton(new Rect(boardRect.x + titleWidth + 2f, top + 12f, menuWidth - 4f, 38f), "☰"))
-            currentPage = GamePage.Menu;
-
-        var firstScoreX = boardRect.x + titleWidth + menuWidth + 4f;
-        DrawScorePanel(new Rect(firstScoreX, top + 2f, scoreWidth, 62f), Text("score"), score);
-        DrawScorePanel(new Rect(firstScoreX + scoreWidth + 8f, top + 2f, scoreWidth, 62f), Text("best"), bestScore);
-
-        GUI.Label(new Rect(boardRect.x, top + 65f, boardSize, 24f), Text("mergeHelp"), labelStyle);
-
+        var boardY = headerButtonY + headerButtonHeight + Mathf.Max(14f, spacing * 2f);
+        boardRect.y = boardY;
+        GUI.Label(new Rect(boardRect.x, boardRect.y - 28f, boardSize, 24f), Text("mergeHelp"), labelStyle);
         DrawBoard(boardRect);
-        GUI.Label(new Rect(boardRect.x, boardRect.yMax + 10f, boardSize, 24f), Text("swipeHelp"), labelStyle);
-
         var undoLabel = freeUndosUsed < FreeUndoLimit
             ? Text("undo") + " (" + (FreeUndoLimit - freeUndosUsed) + ")"
             : Text("watchUndo");
-        var undoRect = new Rect(boardRect.center.x - 72f, boardRect.yMax + 36f, 144f, 42f);
+        var controlsWidth = Mathf.Min(boardSize * 0.72f, 340f);
+        var controlHeight = Mathf.Clamp(boardSize * 0.15f, 48f, 62f);
+        var controlsLeft = boardRect.center.x - controlsWidth / 2f;
+        var undoRect = new Rect(controlsLeft, boardRect.yMax + 38f, controlsWidth, controlHeight);
         if (DrawStyledButton(undoRect, undoLabel))
             RequestUndo();
 
-        var newGameRect = new Rect(boardRect.center.x - 72f, boardRect.yMax + 82f, 144f, 42f);
+        var newGameRect = new Rect(controlsLeft, undoRect.yMax + 10f, controlsWidth, controlHeight);
         if (DrawStyledButton(newGameRect, Text("newGame")))
             NewGame();
 
         if (showPrivacyOptions)
         {
-            var privacyRect = new Rect(boardRect.center.x - 96f, boardRect.yMax + 128f, 192f, 32f);
-            if (GUI.Button(privacyRect, Text("privacy"), labelStyle))
+            var privacyRect = new Rect(controlsLeft, newGameRect.yMax + 6f, controlsWidth, 38f);
+            if (GUI.Button(privacyRect, GUIContent.none, labelStyle))
                 privacyOptionsProvider.ShowPrivacyOptions();
         }
     }
@@ -557,28 +582,21 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
         var buttonHeight = Mathf.Clamp(Screen.height * 0.075f, 42f, 54f);
         var gap = 10f;
         if (DrawStyledButton(new Rect(buttonX, buttonY, buttonWidth, buttonHeight), Text("resume")))
-            currentPage = GamePage.Game;
+            NavigateTo(GamePage.Game);
         if (DrawStyledButton(new Rect(buttonX, buttonY + buttonHeight + gap, buttonWidth, buttonHeight), Text("newGame")))
         {
             NewGame();
-            currentPage = GamePage.Game;
+            NavigateTo(GamePage.Game);
         }
         if (DrawStyledButton(new Rect(buttonX, buttonY + (buttonHeight + gap) * 2f, buttonWidth, buttonHeight), Text("leaderboard")))
         {
-            previousPage = GamePage.Menu;
             leaderboardStatus = null;
-            currentPage = GamePage.Leaderboard;
+            NavigateTo(GamePage.Leaderboard);
         }
         if (DrawStyledButton(new Rect(buttonX, buttonY + (buttonHeight + gap) * 3f, buttonWidth, buttonHeight), Text("settings")))
-        {
-            previousPage = GamePage.Menu;
-            currentPage = GamePage.Settings;
-        }
+            NavigateTo(GamePage.Settings);
         if (DrawStyledButton(new Rect(buttonX, buttonY + (buttonHeight + gap) * 4f, buttonWidth, buttonHeight), Text("howToPlay")))
-        {
-            previousPage = GamePage.Menu;
-            currentPage = GamePage.HowToPlay;
-        }
+            NavigateTo(GamePage.HowToPlay);
 
         GUI.Label(new Rect(x, Screen.height - 72f, width, 36f), Text("best") + ": " + bestScore, labelStyle);
     }
@@ -649,10 +667,41 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
 
     private void DrawBackButton()
     {
-        var buttonWidth = Mathf.Min(Screen.width - 48f, 240f);
-        var rect = new Rect((Screen.width - buttonWidth) / 2f, Screen.height - 96f, buttonWidth, 48f);
+        var safeArea = Screen.safeArea;
+        var bottomInset = Mathf.Max(0f, safeArea.yMin);
+        var buttonWidth = Mathf.Min(Screen.width - 48f, Mathf.Clamp(Screen.width * 0.62f, 240f, 360f));
+        var buttonHeight = Mathf.Clamp(Screen.height * 0.065f, 48f, 64f);
+        var bottomMargin = Mathf.Clamp(Screen.height * 0.025f, 16f, 32f);
+        var rect = new Rect(
+            (Screen.width - buttonWidth) / 2f,
+            Screen.height - bottomInset - bottomMargin - buttonHeight,
+            buttonWidth,
+            buttonHeight);
         if (DrawStyledButton(rect, Text("back")))
-            currentPage = previousPage;
+            NavigateBack();
+    }
+
+    private void NavigateTo(GamePage page)
+    {
+        if (currentPage == page)
+            return;
+
+        pageHistory.Add(currentPage);
+        currentPage = page;
+    }
+
+    private void NavigateBack()
+    {
+        if (pageHistory.Count > 0)
+        {
+            var lastIndex = pageHistory.Count - 1;
+            currentPage = pageHistory[lastIndex];
+            pageHistory.RemoveAt(lastIndex);
+        }
+        else if (currentPage != GamePage.Menu)
+        {
+            currentPage = GamePage.Menu;
+        }
     }
 
     private void DrawSelectorRow(Rect rect, string label, string value, System.Action previous, System.Action next)
@@ -743,10 +792,10 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
     private void DrawScorePanel(Rect rect, string heading, int value)
     {
         DrawSolidRect(rect, ThemePanel());
-        GUI.Label(new Rect(rect.x, rect.y + 5f, rect.width, 22f), heading, labelStyle);
-        tileLabelStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(rect.width / 4.8f), 14, 24);
+        GUI.Label(new Rect(rect.x + 2f, rect.y + 3f, rect.width - 4f, rect.height * 0.4f), heading, labelStyle);
+        tileLabelStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(rect.width / 3.6f), 16, 24);
         tileLabelStyle.normal.textColor = ThemeText();
-        GUI.Label(new Rect(rect.x + 2f, rect.y + 25f, rect.width - 4f, 34f), value.ToString(), tileLabelStyle);
+        GUI.Label(new Rect(rect.x + 2f, rect.y + rect.height * 0.38f, rect.width - 4f, rect.height * 0.58f), value.ToString(), tileLabelStyle);
     }
 
     private void DrawSolidRect(Rect rect, Color color)
