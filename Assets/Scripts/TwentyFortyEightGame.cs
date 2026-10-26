@@ -102,6 +102,7 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
     private GUIStyle headerStyle;
     private GUIStyle overlayStyle;
     private GUIStyle tileLabelStyle;
+    private GUIStyle scoreHeadingStyle;
     private GUIStyle buttonStyle;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -512,27 +513,36 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
         var boardRect = new Rect((Screen.width - boardSize) / 2f, top, boardSize, boardSize);
         var spacing = boardSize * 0.018f;
         var headerTileSize = (boardSize - spacing * (Size + 1)) / Size;
-        var titleBadgeSize = headerTileSize * 1.18f;
-        var titleRect = new Rect(boardRect.x, top, titleBadgeSize, titleBadgeSize);
-        var firstScoreX = boardRect.xMax - headerTileSize * 2f - spacing;
-        var scoreRect = new Rect(firstScoreX, top, headerTileSize, headerTileSize);
-        var bestRect = new Rect(boardRect.xMax - headerTileSize, top, headerTileSize, headerTileSize);
+        var headerBlockWidth = boardSize;
+        var titleBadgeWidth = Mathf.Min(boardSize * 0.36f, headerTileSize * 1.55f);
+        var titleBadgeHeight = headerTileSize * 1.28f;
+        var titleRect = new Rect(boardRect.x, top, titleBadgeWidth, titleBadgeHeight);
+        var scoreBoxSize = headerTileSize * 0.94f;
+        var scoreBoxWidth = scoreBoxSize;
+        var scoreBoxHeight = scoreBoxSize;
+        var buttonGap = Mathf.Max(4f, spacing * 0.5f);
+        var headerButtonHeight = Mathf.Clamp(headerTileSize * 0.52f, 32f, 44f);
+        var headerButtonY = top + scoreBoxHeight + spacing;
+        var headerBlockHeight = headerButtonY - top + headerButtonHeight;
+        var scorePairWidth = scoreBoxWidth * 2f + spacing;
+        var scorePairX = boardRect.xMax - scorePairWidth;
+        var scoreRect = new Rect(scorePairX, top, scoreBoxWidth, scoreBoxHeight);
+        var bestRect = new Rect(scorePairX + scoreBoxWidth + spacing, top, scoreBoxWidth, scoreBoxHeight);
         var titleBadgeStyle = new GUIStyle(headerStyle)
         {
             alignment = TextAnchor.MiddleCenter,
-            fontSize = Mathf.Clamp(Mathf.RoundToInt(titleBadgeSize * 0.38f), 20, 42),
-            normal = { textColor = ThemeText() }
+            fontSize = Mathf.Clamp(Mathf.RoundToInt(titleBadgeHeight * 0.4f), 22, 44),
+            fontStyle = FontStyle.Bold,
+            normal = { textColor = Color.white }
         };
-        DrawSolidRect(titleRect, ThemePanel());
+        DrawSolidRect(titleRect, ThemeButton());
         GUI.Label(titleRect, "2048", titleBadgeStyle);
         DrawScorePanel(scoreRect, Text("score"), score);
         DrawScorePanel(bestRect, Text("best"), bestScore);
 
-        var headerButtonWidth = headerTileSize;
-        var headerButtonHeight = Mathf.Clamp(headerTileSize * 0.38f, 30f, 42f);
-        var headerButtonY = top + headerTileSize + spacing;
+        var headerButtonWidth = scoreBoxWidth;
         var originalButtonFontSize = buttonStyle.fontSize;
-        buttonStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(headerTileSize * 0.18f), 10, 14);
+        buttonStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(headerButtonHeight * 0.42f), 12, 16);
         if (DrawStyledButton(new Rect(scoreRect.x, headerButtonY, headerButtonWidth, headerButtonHeight), Text("menu")))
             NavigateTo(GamePage.Menu);
         if (DrawStyledButton(new Rect(bestRect.x, headerButtonY, headerButtonWidth, headerButtonHeight), Text("leaderboardShort")))
@@ -543,8 +553,8 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
         buttonStyle.fontSize = originalButtonFontSize;
 
         var helpTextHeight = 24f;
-        var helpTextGap = labelStyle.fontSize * 2f;
-        var helpTextTop = headerButtonY + headerButtonHeight + helpTextGap;
+        var helpTextGap = labelStyle.fontSize;
+        var helpTextTop = top + headerBlockHeight + buttonGap + helpTextGap;
         var boardY = helpTextTop + helpTextHeight + helpTextGap;
         boardRect.y = boardY;
         GUI.Label(new Rect(boardRect.x, helpTextTop, boardSize, helpTextHeight), Text("mergeHelp"), labelStyle);
@@ -796,10 +806,11 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
     private void DrawScorePanel(Rect rect, string heading, int value)
     {
         DrawSolidRect(rect, ThemePanel());
-        GUI.Label(new Rect(rect.x + 2f, rect.y + 3f, rect.width - 4f, rect.height * 0.4f), heading, labelStyle);
-        tileLabelStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(rect.width / 3.6f), 16, 24);
+        scoreHeadingStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(rect.height * 0.18f), 11, 16);
+        GUI.Label(new Rect(rect.x + 3f, rect.y + 4f, rect.width - 6f, rect.height * 0.34f), heading, scoreHeadingStyle);
+        tileLabelStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(rect.width / 3.2f), 16, 26);
         tileLabelStyle.normal.textColor = ThemeText();
-        GUI.Label(new Rect(rect.x + 2f, rect.y + rect.height * 0.38f, rect.width - 4f, rect.height * 0.58f), value.ToString(), tileLabelStyle);
+        GUI.Label(new Rect(rect.x + 3f, rect.y + rect.height * 0.36f, rect.width - 6f, rect.height * 0.6f), value.ToString(), tileLabelStyle);
     }
 
     private void DrawSolidRect(Rect rect, Color color)
@@ -839,6 +850,12 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
         tileLabelStyle = new GUIStyle(labelStyle)
         {
             fontSize = 24,
+            fontStyle = FontStyle.Bold,
+            normal = { textColor = ThemeText() }
+        };
+        scoreHeadingStyle = new GUIStyle(labelStyle)
+        {
+            fontSize = Mathf.Clamp(Screen.width / 38, 11, 16),
             fontStyle = FontStyle.Bold,
             normal = { textColor = ThemeText() }
         };
@@ -884,6 +901,7 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
         titleStyle.normal.textColor = ThemeText();
         headerStyle.normal.textColor = ThemeText();
         tileLabelStyle.normal.textColor = ThemeText();
+        scoreHeadingStyle.normal.textColor = ThemeText();
     }
 
     private Color ThemeBackground() => ThemeColor(0);
