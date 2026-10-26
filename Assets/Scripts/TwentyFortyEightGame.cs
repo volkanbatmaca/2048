@@ -86,7 +86,7 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
     private int languageIndex;
     private int themeIndex;
     private int freeUndosUsed;
-    private GamePage currentPage = GamePage.Menu;
+    private GamePage currentPage = GamePage.Game;
     private bool gameOver;
     private bool hasWon;
     private bool continuedAfterWin;
