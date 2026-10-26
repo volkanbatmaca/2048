@@ -95,6 +95,7 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
     private string leaderboardStatus;
     private Vector2 pointerStart;
     private bool trackingPointer;
+    private IAdBannerProvider bannerProvider;
 
     private Texture2D whiteTexture;
     private GUIStyle labelStyle;
@@ -122,6 +123,7 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
         bestScore = PlayerPrefs.GetInt(BestScoreKey, 0);
         languageIndex = Mathf.Clamp(PlayerPrefs.GetInt(LanguageKey, 0), 0, Languages.Length - 1);
         themeIndex = Mathf.Clamp(PlayerPrefs.GetInt(ThemeKey, 0), 0, ThemeKeys.Length - 1);
+        bannerProvider = FindAdBannerProvider();
         whiteTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
         whiteTexture.SetPixel(0, 0, Color.white);
         whiteTexture.Apply();
@@ -139,6 +141,7 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
     {
         ReadKeyboardInput();
         ReadPointerInput();
+        bannerProvider?.SetBannerVisible(true);
     }
 
     private void ReadKeyboardInput()
@@ -377,6 +380,18 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
         return null;
     }
 
+    private static IAdBannerProvider FindAdBannerProvider()
+    {
+        var behaviours = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+        for (var i = 0; i < behaviours.Length; i++)
+        {
+            if (behaviours[i] is IAdBannerProvider provider)
+                return provider;
+        }
+
+        return null;
+    }
+
     private void ApplyUndo()
     {
         if (undoHistory.Count == 0)
@@ -500,8 +515,10 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
     {
         var privacyOptionsProvider = FindPrivacyOptionsProvider();
         var showPrivacyOptions = privacyOptionsProvider != null && privacyOptionsProvider.IsPrivacyOptionsRequired;
+        var reservedBannerHeight = bannerProvider != null ? bannerProvider.ReservedBannerHeightPixels : 0f;
+        var availableHeight = Mathf.Max(0f, Screen.height - reservedBannerHeight);
         var footerHeight = showPrivacyOptions ? 352f : 310f;
-        var boardSize = Mathf.Min(Screen.width - 32f, Screen.height - footerHeight, 520f);
+        var boardSize = Mathf.Min(Screen.width - 32f, availableHeight - footerHeight, 520f);
         boardSize = Mathf.Max(0, boardSize);
         titleStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(boardSize * 0.14f), 20, 58);
         headerStyle.fontSize = titleStyle.fontSize;
@@ -509,7 +526,7 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
         buttonStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(boardSize / 15f), 17, 24);
         labelStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(boardSize / 22f), 14, 20);
         var contentHeight = footerHeight + boardSize;
-        var top = Mathf.Max(12f, (Screen.height - contentHeight) / 2f);
+        var top = Mathf.Max(12f, (availableHeight - contentHeight) / 2f);
         var boardRect = new Rect((Screen.width - boardSize) / 2f, top, boardSize, boardSize);
         var spacing = boardSize * 0.018f;
         var headerTileSize = (boardSize - spacing * (Size + 1)) / Size;
@@ -612,7 +629,8 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
         if (DrawStyledButton(new Rect(buttonX, buttonY + (buttonHeight + gap) * 4f, buttonWidth, buttonHeight), Text("howToPlay")))
             NavigateTo(GamePage.HowToPlay);
 
-        GUI.Label(new Rect(x, Screen.height - 72f, width, 36f), Text("best") + ": " + bestScore, labelStyle);
+        var bannerHeight = bannerProvider != null ? bannerProvider.ReservedBannerHeightPixels : 0f;
+        GUI.Label(new Rect(x, Screen.height - bannerHeight - 72f, width, 36f), Text("best") + ": " + bestScore, labelStyle);
     }
 
     private void DrawSettingsPage()
@@ -644,7 +662,8 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
         if (!string.IsNullOrEmpty(statusText))
             GUI.Label(new Rect(x, infoY + 164f, width, 56f), statusText, labelStyle);
 
-        var buttonY = Mathf.Min(infoY + 228f, Screen.height - 160f);
+        var bannerHeight = bannerProvider != null ? bannerProvider.ReservedBannerHeightPixels : 0f;
+        var buttonY = Mathf.Min(infoY + 228f, Screen.height - bannerHeight - 160f);
         if (DrawStyledButton(new Rect(x + (width - Mathf.Min(width, 300f)) / 2f, buttonY, Mathf.Min(width, 300f), 50f), Text("openLeaderboard")))
         {
             if (!configured)
@@ -682,13 +701,17 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
     private void DrawBackButton()
     {
         var safeArea = Screen.safeArea;
-        var bottomInset = Mathf.Max(0f, safeArea.yMin);
+        var safeAreaTop = Screen.height - safeArea.yMax;
+        var bannerHeight = bannerProvider != null ? bannerProvider.ReservedBannerHeightPixels : 0f;
+        var safeAreaBottom = Screen.height - safeArea.yMin - bannerHeight;
         var buttonWidth = Mathf.Min(Screen.width - 48f, Mathf.Clamp(Screen.width * 0.62f, 240f, 360f));
-        var buttonHeight = Mathf.Clamp(Screen.height * 0.065f, 48f, 64f);
-        var bottomMargin = Mathf.Clamp(Screen.height * 0.025f, 16f, 32f);
+        var buttonHeight = Mathf.Clamp(Screen.height * 0.075f, 52f, 68f);
+        var bottomMargin = Mathf.Clamp(Screen.height * 0.04f, 20f, 36f);
+        var preferredY = safeAreaTop + safeArea.height * 0.82f;
+        var lastVisibleY = safeAreaBottom - bottomMargin - buttonHeight;
         var rect = new Rect(
             (Screen.width - buttonWidth) / 2f,
-            Screen.height - bottomInset - bottomMargin - buttonHeight,
+            Mathf.Clamp(Mathf.Min(preferredY, lastVisibleY), safeAreaTop, Screen.height - buttonHeight),
             buttonWidth,
             buttonHeight);
         if (DrawStyledButton(rect, Text("back")))
@@ -957,6 +980,12 @@ public interface IPrivacyOptionsProvider
 {
     bool IsPrivacyOptionsRequired { get; }
     void ShowPrivacyOptions();
+}
+
+public interface IAdBannerProvider
+{
+    float ReservedBannerHeightPixels { get; }
+    void SetBannerVisible(bool visible);
 }
 
 public interface INativeLeaderboardProvider

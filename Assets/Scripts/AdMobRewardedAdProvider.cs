@@ -4,22 +4,31 @@ using GoogleMobileAds.Ump.Api;
 using UnityEngine;
 
 [DefaultExecutionOrder(-200)]
-public sealed class AdMobRewardedAdProvider : MonoBehaviour, IRewardedAdProvider, IPrivacyOptionsProvider
+public sealed class AdMobRewardedAdProvider : MonoBehaviour, IRewardedAdProvider, IPrivacyOptionsProvider, IAdBannerProvider
 {
     private const string AndroidRewardedTestAdUnitId = "ca-app-pub-3940256099942544/5224354917";
     private const string IOSRewardedTestAdUnitId = "ca-app-pub-3940256099942544/1712485313";
     private const string AndroidRewardedAdUnitId = "ca-app-pub-1755657809365069/4803510701";
     private const string IOSRewardedAdUnitId = "ca-app-pub-1755657809365069/5266545136";
+    private const string AndroidBannerTestAdUnitId = "ca-app-pub-3940256099942544/1033173712";
+    private const string IOSBannerTestAdUnitId = "ca-app-pub-3940256099942544/4411468910";
+    private const float StandardBannerHeightDp = 50f;
 
     private RewardedAd rewardedAd;
+    private BannerView bannerView;
     private Action<bool> pendingRewardCallback;
     private bool adsInitialized;
     private bool initializationStarted;
     private bool isLoadingAd;
     private bool isShowingAd;
+    private bool bannerShouldBeVisible;
+    private bool bannerLoadStarted;
 
     public bool IsPrivacyOptionsRequired =>
         ConsentInformation.PrivacyOptionsRequirementStatus == PrivacyOptionsRequirementStatus.Required;
+    public float ReservedBannerHeightPixels => GetBannerAdUnitId() == null
+        ? 0f
+        : StandardBannerHeightDp * (Screen.dpi > 0f ? Screen.dpi / 160f : 1f) + 8f;
 
     private void Awake()
     {
@@ -29,7 +38,23 @@ public sealed class AdMobRewardedAdProvider : MonoBehaviour, IRewardedAdProvider
     private void OnDestroy()
     {
         DestroyRewardedAd();
+        DestroyBannerAd();
         pendingRewardCallback = null;
+    }
+
+    public void SetBannerVisible(bool visible)
+    {
+        if (bannerShouldBeVisible == visible)
+            return;
+
+        bannerShouldBeVisible = visible;
+        if (bannerView == null)
+            return;
+
+        if (visible)
+            bannerView.Show();
+        else
+            bannerView.Hide();
     }
 
     public void ShowRewardedAd(Action<bool> onCompleted)
@@ -95,8 +120,39 @@ public sealed class AdMobRewardedAdProvider : MonoBehaviour, IRewardedAdProvider
         MobileAds.Initialize(_ =>
         {
             adsInitialized = true;
+            LoadBannerAd();
             LoadRewardedAd();
         });
+    }
+
+    private void LoadBannerAd()
+    {
+        if (!adsInitialized || bannerLoadStarted)
+            return;
+
+        var adUnitId = GetBannerAdUnitId();
+        if (string.IsNullOrEmpty(adUnitId))
+            return;
+
+        bannerLoadStarted = true;
+        bannerView = new BannerView(adUnitId, AdSize.Banner, AdPosition.Bottom);
+        bannerView.OnBannerAdLoaded += () =>
+        {
+            if (bannerView != null && bannerShouldBeVisible)
+                bannerView.Show();
+        };
+        bannerView.OnBannerAdLoadFailed += error =>
+            Debug.LogWarning("Banner reklam yüklenemedi: " + error.GetMessage());
+        bannerView.LoadAd(new AdRequest());
+    }
+
+    private void DestroyBannerAd()
+    {
+        if (bannerView == null)
+            return;
+
+        bannerView.Destroy();
+        bannerView = null;
     }
 
     private void LoadRewardedAd()
@@ -195,6 +251,19 @@ public sealed class AdMobRewardedAdProvider : MonoBehaviour, IRewardedAdProvider
         return AndroidRewardedAdUnitId;
 #elif UNITY_IOS
         return IOSRewardedAdUnitId;
+#else
+        return null;
+#endif
+    }
+
+    private static string GetBannerAdUnitId()
+    {
+#if UNITY_EDITOR
+        return null;
+#elif UNITY_ANDROID && DEVELOPMENT_BUILD
+        return AndroidBannerTestAdUnitId;
+#elif UNITY_IOS && DEVELOPMENT_BUILD
+        return IOSBannerTestAdUnitId;
 #else
         return null;
 #endif
