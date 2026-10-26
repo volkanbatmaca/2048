@@ -89,7 +89,7 @@ private static readonly Dictionary<string, string[]> LocalizedText = new Diction
     { "mergeHelp", new[] { "Birleştir, 2048'e ulaş!", "Merge tiles. Reach 2048!", "¡Combina y llega a 2048!", "Fusionne et atteins 2048 !", "Verbinde Steine. Erreiche 2048!" } },
     { "swipeHelp", new[] { "Kaydırarak kutuları birleştir", "Swipe to merge tiles", "Desliza para unir fichas", "Fais glisser pour fusionner", "Wische, um Steine zu verbinden" } },
     { "undo", new[] { "Geri al", "Undo", "Deshacer", "Annuler", "Rückgängig" } },
-    { "watchUndo", new[] { "İzle +1", "Watch +1", "Ver +1", "Voir +1", "Ansehen +1" } },
+    { "watchUndo", new[] { "Geri Al (İzle +1)", "Undo (Watch +1)", "Deshacer (Ver +1)", "Annuler (Voir +1)", "Rückgängig (Ansehen +1)" } },
     { "privacy", new[] { "Gizlilik ayarları", "Privacy options", "Opciones de privacidad", "Options de confidentialité", "Datenschutzoptionen" } },
     { "adMissing", new[] { "Reklam sağlayıcısı bağlı değil.", "Ad provider is not configured.", "El proveedor de anuncios no está configurado.", "Le fournisseur de publicité n'est pas configuré.", "Der Werbeanbieter ist nicht eingerichtet." } },
     { "adIncomplete", new[] { "Reklam tamamlanmadı. Geri alma kullanılmadı.", "Ad not completed. Undo was not used.", "Anuncio no completado. No se deshizo la jugada.", "Publicité non terminée. Annulation non utilisée.", "Anzeige nicht abgeschlossen. Zug nicht rückgängig gemacht." } },
