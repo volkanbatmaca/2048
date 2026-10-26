@@ -34,6 +34,10 @@ public sealed class AdMobRewardedAdProvider : MonoBehaviour, IRewardedAdProvider
 
     private void Awake()
     {
+        MobileAds.SetRequestConfiguration(new RequestConfiguration
+        {
+            MaxAdContentRating = MaxAdContentRating.G
+        });
         RequestConsent();
     }
 

@@ -137,6 +137,21 @@ private GUIStyle scoreHeadingStyle;
 private GUIStyle gameHintStyle;
 private GUIStyle buttonStyle;
 
+private static float UiScale
+{
+    get
+    {
+        var scale = Screen.dpi > 0f ? Screen.dpi / 160f : Screen.width / 360f;
+        return Mathf.Clamp(scale, 1f, 4f);
+    }
+}
+
+private static float UiScreenWidth => Screen.width / UiScale;
+private static float UiScreenHeight => Screen.height / UiScale;
+private float ReservedBannerHeight => bannerProvider != null
+    ? bannerProvider.ReservedBannerHeightPixels / UiScale
+    : 50f;
+
 [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
 private static void CreateGameIfMissing()
 {
@@ -551,27 +566,36 @@ private bool HasNoMoves()
 
 private void OnGUI()
 {
-    EnsureStyles();
-    DrawSolidRect(new Rect(0, 0, Screen.width, Screen.height), ThemeBackground());
-    ApplyThemeToStyles();
-
-    switch (currentPage)
+    var previousMatrix = GUI.matrix;
+    GUI.matrix = Matrix4x4.Scale(Vector3.one * UiScale);
+    try
     {
-        case GamePage.Game:
-            DrawGamePage();
-            break;
-        case GamePage.Menu:
-            DrawMenuPage();
-            break;
-        case GamePage.Settings:
-            DrawSettingsPage();
-            break;
-        case GamePage.Leaderboard:
-            DrawLeaderboardPage();
-            break;
-        case GamePage.HowToPlay:
-            DrawHowToPlayPage();
-            break;
+        EnsureStyles();
+        DrawSolidRect(new Rect(0, 0, UiScreenWidth, UiScreenHeight), ThemeBackground());
+        ApplyThemeToStyles();
+
+        switch (currentPage)
+        {
+            case GamePage.Game:
+                DrawGamePage();
+                break;
+            case GamePage.Menu:
+                DrawMenuPage();
+                break;
+            case GamePage.Settings:
+                DrawSettingsPage();
+                break;
+            case GamePage.Leaderboard:
+                DrawLeaderboardPage();
+                break;
+            case GamePage.HowToPlay:
+                DrawHowToPlayPage();
+                break;
+        }
+    }
+    finally
+    {
+        GUI.matrix = previousMatrix;
     }
 }
 
@@ -581,12 +605,16 @@ private void DrawGamePage()
     var showPrivacyOptions = privacyOptionsProvider != null && privacyOptionsProvider.IsPrivacyOptionsRequired;
 
     // Banner reklam alanı rezervasyonu (Alt Kısım)
-    var reservedBannerHeight = bannerProvider != null ? bannerProvider.ReservedBannerHeightPixels : 50f;
-    var availableHeight = Mathf.Max(0f, Screen.height - reservedBannerHeight - Screen.safeArea.yMin);
+    var safeArea = Screen.safeArea;
+    safeArea.x /= UiScale;
+    safeArea.y /= UiScale;
+    safeArea.width /= UiScale;
+    safeArea.height /= UiScale;
+    var availableHeight = Mathf.Max(0f, UiScreenHeight - ReservedBannerHeight - safeArea.yMin);
 
     // Tahtanın boyutu (Mümkün olduğunca büyük dikey kare)
-    var maxBoardWidth = Screen.width - 32f;
-    var boardSize = Mathf.Min(maxBoardWidth, 540f);
+    var maxBoardWidth = UiScreenWidth - 32f;
+    var boardSize = maxBoardWidth;
 
     // Dinamik Yükseklik Oranları
     var spacing = boardSize * 0.02f;
@@ -607,7 +635,7 @@ private void DrawGamePage()
     var fixedElementsHeight = headerHeight + helpTextHeight + (controlHeight * 2f) + controlGap + privacyHeight + 60f;
     if (boardSize + fixedElementsHeight > availableHeight)
     {
-        boardSize = Mathf.Max(260f, availableHeight - fixedElementsHeight);
+        boardSize = Mathf.Max(0f, availableHeight - fixedElementsHeight);
         spacing = boardSize * 0.02f;
         titleBadgeWidth = boardSize * 0.32f;
         scoreBoxWidth = (boardSize - titleBadgeWidth - spacing * 2f) / 2f;
@@ -615,8 +643,8 @@ private void DrawGamePage()
         headerHeight = scoreBoxHeight + scoreButtonGap + headerButtonHeight;
     }
 
-    var topMargin = Mathf.Max(Screen.safeArea.y, (availableHeight - (boardSize + fixedElementsHeight)) / 2f + 10f) + 14f;
-    var boardLeft = (Screen.width - boardSize) / 2f;
+    var topMargin = Mathf.Max(safeArea.y, (availableHeight - (boardSize + fixedElementsHeight)) / 2f + 10f) + 14f;
+    var boardLeft = (UiScreenWidth - boardSize) / 2f;
 
     // 1. ÜST HEADER ALANI (2048 Logosu, Skor, En İyi)
     var titleRect = new Rect(boardLeft, topMargin, titleBadgeWidth, scoreBoxHeight);
@@ -694,13 +722,13 @@ private void DrawGamePage()
 
 private void DrawMenuPage()
 {
-    var width = Mathf.Min(Screen.width - 40f, 420f);
-    var x = (Screen.width - width) / 2f;
-    var titleY = Mathf.Max(36f, Screen.height * 0.13f);
+    var width = Mathf.Min(UiScreenWidth - 40f, 420f);
+    var x = (UiScreenWidth - width) / 2f;
+    var titleY = Mathf.Max(36f, UiScreenHeight * 0.13f);
     titleStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(width * 0.19f), 48, 78);
     GUI.Label(new Rect(x, titleY, width, 96f), "2048", titleStyle);
     var buttonWidth = StandardActionButtonWidth();
-    var buttonX = (Screen.width - buttonWidth) / 2f;
+    var buttonX = (UiScreenWidth - buttonWidth) / 2f;
     var buttonHeight = StandardActionButtonHeight();
     var menuLabel = Text("menu");
     var menuButtonRect = new Rect(buttonX, titleY + 88f, buttonWidth, buttonHeight);
@@ -731,9 +759,9 @@ private void DrawMenuPage()
 private void DrawSettingsPage()
 {
     DrawPageHeader(Text("settings"));
-    var width = Mathf.Min(Screen.width - 40f, 440f);
-    var x = (Screen.width - width) / 2f;
-    var rowY = Mathf.Max(Screen.height * 0.29f, 150f);
+    var width = Mathf.Min(UiScreenWidth - 40f, 440f);
+    var x = (UiScreenWidth - width) / 2f;
+    var rowY = Mathf.Max(UiScreenHeight * 0.29f, 150f);
     var rowHeight = 88f;
     DrawSelectorRow(new Rect(x, rowY, width, rowHeight), Text("language"), Languages[languageIndex],
         () => ChangeLanguage(-1), () => ChangeLanguage(1));
@@ -745,9 +773,9 @@ private void DrawSettingsPage()
 private void DrawLeaderboardPage()
 {
     DrawPageHeader(Text("leaderboard"));
-    var width = Mathf.Min(Screen.width - 44f, 440f);
-    var x = (Screen.width - width) / 2f;
-    var infoY = Screen.height * 0.31f;
+    var width = Mathf.Min(UiScreenWidth - 44f, 440f);
+    var x = (UiScreenWidth - width) / 2f;
+    var infoY = UiScreenHeight * 0.31f;
     GUI.Label(new Rect(x, infoY, width, 90f), Text("leaderboardInfo"), labelStyle);
     GUI.Label(new Rect(x, infoY + 90f, width, 64f), Text("leaderboardPlatform"), labelStyle);
 
@@ -759,9 +787,8 @@ private void DrawLeaderboardPage()
 
     var actionButtonWidth = StandardActionButtonWidth();
     var actionButtonHeight = StandardActionButtonHeight();
-    var actionButtonX = (Screen.width - actionButtonWidth) / 2f;
-    var bannerHeight = bannerProvider != null ? bannerProvider.ReservedBannerHeightPixels : 50f;
-    var safeAreaBottom = Screen.height - Screen.safeArea.yMin - bannerHeight;
+    var actionButtonX = (UiScreenWidth - actionButtonWidth) / 2f;
+    var safeAreaBottom = UiScreenHeight - Screen.safeArea.yMin / UiScale - ReservedBannerHeight;
     const float bottomMargin = 12f;
     const float buttonGap = 8f;
     var backButtonY = safeAreaBottom - bottomMargin - actionButtonHeight;
@@ -790,33 +817,34 @@ private void DrawLeaderboardPage()
 private void DrawHowToPlayPage()
 {
     DrawPageHeader(Text("howToPlay"));
-    var width = Mathf.Min(Screen.width - 48f, 440f);
-    var x = (Screen.width - width) / 2f;
-    var textY = Screen.height * 0.32f;
+    var width = Mathf.Min(UiScreenWidth - 48f, 440f);
+    var x = (UiScreenWidth - width) / 2f;
+    var textY = UiScreenHeight * 0.32f;
     GUI.Label(new Rect(x, textY, width, 180f), Text("tutorial"), labelStyle);
     DrawBackButton();
 }
 
 private void DrawPageHeader(string title)
 {
-    titleStyle.fontSize = Mathf.Clamp(Screen.width / 16, 28, 44);
-    GUI.Label(new Rect(24f, 38f, Screen.width - 48f, 64f), title, titleStyle);
+    titleStyle.fontSize = Mathf.Clamp((int)UiScreenWidth / 16, 28, 44);
+    GUI.Label(new Rect(24f, 38f, UiScreenWidth - 48f, 64f), title, titleStyle);
 }
 
 private void DrawBackButton()
 {
     var safeArea = Screen.safeArea;
-    var safeAreaTop = Screen.height - safeArea.yMax;
-    var bannerHeight = bannerProvider != null ? bannerProvider.ReservedBannerHeightPixels : 50f;
-    var safeAreaBottom = Screen.height - safeArea.yMin - bannerHeight;
+    safeArea.y /= UiScale;
+    safeArea.height /= UiScale;
+    var safeAreaTop = UiScreenHeight - (safeArea.y + safeArea.height);
+    var safeAreaBottom = UiScreenHeight - safeArea.y - ReservedBannerHeight;
     var buttonWidth = StandardActionButtonWidth();
     var buttonHeight = StandardActionButtonHeight();
-    var bottomMargin = Mathf.Clamp(Screen.height * 0.04f, 20f, 36f);
+    var bottomMargin = Mathf.Clamp(UiScreenHeight * 0.04f, 20f, 36f);
     var preferredY = safeAreaTop + safeArea.height * 0.82f;
     var lastVisibleY = safeAreaBottom - bottomMargin - buttonHeight;
     var rect = new Rect(
-        (Screen.width - buttonWidth) / 2f,
-        Mathf.Clamp(Mathf.Min(preferredY, lastVisibleY), safeAreaTop, Screen.height - buttonHeight),
+        (UiScreenWidth - buttonWidth) / 2f,
+        Mathf.Clamp(Mathf.Min(preferredY, lastVisibleY), safeAreaTop, UiScreenHeight - buttonHeight),
         buttonWidth,
         buttonHeight);
     if (DrawStyledButton(rect, Text("back")))
@@ -866,7 +894,7 @@ private void DrawSelectorRow(Rect rect, string label, string value, System.Actio
 
 private float StandardActionButtonWidth()
 {
-    return Mathf.Min(Screen.width - 48f, 300f);
+    return Mathf.Min(UiScreenWidth - 48f, 300f);
 }
 
 private static float StandardActionButtonHeight()
@@ -988,7 +1016,7 @@ private void EnsureStyles()
     labelStyle = new GUIStyle(GUI.skin.label)
     {
         alignment = TextAnchor.MiddleCenter,
-        fontSize = Mathf.Clamp(Screen.width / 32, 12, 18),
+        fontSize = Mathf.Clamp((int)UiScreenWidth / 32, 12, 18),
         normal = { textColor = ThemeText() }
     };
     titleStyle = new GUIStyle(labelStyle)
@@ -1015,13 +1043,13 @@ private void EnsureStyles()
     };
     scoreHeadingStyle = new GUIStyle(labelStyle)
     {
-        fontSize = Mathf.Clamp(Screen.width / 38, 11, 16),
+        fontSize = Mathf.Clamp((int)UiScreenWidth / 38, 11, 16),
         fontStyle = FontStyle.Bold,
         normal = { textColor = ThemeText() }
     };
     gameHintStyle = new GUIStyle(labelStyle)
     {
-        fontSize = Mathf.Clamp(Screen.width / 28, 13, 17),
+        fontSize = Mathf.Clamp((int)UiScreenWidth / 28, 13, 17),
         fontStyle = FontStyle.Bold,
         wordWrap = false,
         normal = { textColor = ThemeText() }
@@ -1029,7 +1057,7 @@ private void EnsureStyles()
     buttonStyle = new GUIStyle(GUI.skin.button)
     {
         alignment = TextAnchor.MiddleCenter,
-        fontSize = Mathf.Clamp(Screen.width / 28, 14, 18),
+        fontSize = Mathf.Clamp((int)UiScreenWidth / 28, 14, 18),
         fontStyle = FontStyle.Bold,
         normal = { textColor = Color.white }
     };
