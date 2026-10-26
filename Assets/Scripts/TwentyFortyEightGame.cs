@@ -512,14 +512,15 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
         var boardRect = new Rect((Screen.width - boardSize) / 2f, top, boardSize, boardSize);
         var spacing = boardSize * 0.018f;
         var headerTileSize = (boardSize - spacing * (Size + 1)) / Size;
-        var titleRect = new Rect(boardRect.x, top, headerTileSize, headerTileSize);
-        var firstScoreX = boardRect.x + headerTileSize + spacing;
+        var titleBadgeSize = headerTileSize * 1.18f;
+        var titleRect = new Rect(boardRect.x, top, titleBadgeSize, titleBadgeSize);
+        var firstScoreX = boardRect.xMax - headerTileSize * 2f - spacing;
         var scoreRect = new Rect(firstScoreX, top, headerTileSize, headerTileSize);
-        var bestRect = new Rect(firstScoreX + headerTileSize + spacing, top, headerTileSize, headerTileSize);
+        var bestRect = new Rect(boardRect.xMax - headerTileSize, top, headerTileSize, headerTileSize);
         var titleBadgeStyle = new GUIStyle(headerStyle)
         {
             alignment = TextAnchor.MiddleCenter,
-            fontSize = Mathf.Clamp(Mathf.RoundToInt(headerTileSize * 0.36f), 20, 38),
+            fontSize = Mathf.Clamp(Mathf.RoundToInt(titleBadgeSize * 0.38f), 20, 42),
             normal = { textColor = ThemeText() }
         };
         DrawSolidRect(titleRect, ThemePanel());
@@ -541,9 +542,12 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
         }
         buttonStyle.fontSize = originalButtonFontSize;
 
-        var boardY = headerButtonY + headerButtonHeight + Mathf.Max(14f, spacing * 2f);
+        var helpTextHeight = 24f;
+        var helpTextGap = labelStyle.fontSize * 2f;
+        var helpTextTop = headerButtonY + headerButtonHeight + helpTextGap;
+        var boardY = helpTextTop + helpTextHeight + helpTextGap;
         boardRect.y = boardY;
-        GUI.Label(new Rect(boardRect.x, boardRect.y - 28f, boardSize, 24f), Text("mergeHelp"), labelStyle);
+        GUI.Label(new Rect(boardRect.x, helpTextTop, boardSize, helpTextHeight), Text("mergeHelp"), labelStyle);
         DrawBoard(boardRect);
         var undoLabel = freeUndosUsed < FreeUndoLimit
             ? Text("undo") + " (" + (FreeUndoLimit - freeUndosUsed) + ")"
