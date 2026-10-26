@@ -25,7 +25,7 @@ public interface IAdBannerProvider
 public interface INativeLeaderboardProvider
 {
     bool IsConfigured { get; }
-    void SubmitBestScore(int score);
+    void SubmitBestScore(long score);
     void ShowLeaderboard(System.Action<bool> onCompleted);
 }
 
@@ -34,8 +34,10 @@ public sealed class TwentyFortyEightGame : MonoBehaviour
 private const int Size = 4;
 private const int WinTile = 2048;
 private const int FreeUndoLimit = 3;
+private const int LeaderboardTimeBaseSeconds = 86400;
 private const float SwipeThreshold = 50f;
 private const string BestScoreKey = "2048_best_score";
+private const string BestScoreTimeKey = "2048_best_score_time";
 private const string LanguageKey = "2048_language";
 private const string ThemeKey = "2048_theme";
 
@@ -109,6 +111,8 @@ private readonly List<GameSnapshot> undoHistory = new List<GameSnapshot>();
 private readonly List<GamePage> pageHistory = new List<GamePage>();
 private int score;
 private int bestScore;
+private float elapsedSeconds;
+private float bestScoreTime = -1f;
 private int languageIndex;
 private int themeIndex;
 private int freeUndosUsed;
@@ -148,6 +152,9 @@ private static void CreateGameIfMissing()
 private void Awake()
 {
     bestScore = PlayerPrefs.GetInt(BestScoreKey, 0);
+    bestScoreTime = PlayerPrefs.HasKey(BestScoreTimeKey)
+        ? PlayerPrefs.GetFloat(BestScoreTimeKey, -1f)
+        : -1f;
     languageIndex = Mathf.Clamp(PlayerPrefs.GetInt(LanguageKey, 0), 0, Languages.Length - 1);
     themeIndex = Mathf.Clamp(PlayerPrefs.GetInt(ThemeKey, 0), 0, ThemeKeys.Length - 1);
     bannerProvider = FindAdBannerProvider();
@@ -155,7 +162,7 @@ private void Awake()
     whiteTexture.SetPixel(0, 0, Color.white);
     whiteTexture.Apply();
     NewGame();
-    FindLeaderboardProvider()?.SubmitBestScore(bestScore);
+    FindLeaderboardProvider()?.SubmitBestScore(CreateLeaderboardScore(bestScore, bestScoreTime));
 }
 
 private void OnDestroy()
@@ -168,6 +175,8 @@ private void Update()
 {
     ReadKeyboardInput();
     ReadPointerInput();
+    if (currentPage == GamePage.Game && !gameOver && (!hasWon || continuedAfterWin) && !isShowingRewardedAd)
+        elapsedSeconds += Time.unscaledDeltaTime;
     bannerProvider?.SetBannerVisible(true);
 }
 
@@ -268,6 +277,7 @@ private void NewGame()
     System.Array.Clear(board, 0, board.Length);
     undoHistory.Clear();
     score = 0;
+    elapsedSeconds = 0f;
     freeUndosUsed = 0;
     gameOver = false;
     hasWon = false;
@@ -320,8 +330,9 @@ private void Move(Direction direction)
 
     undoHistory.Add(snapshot);
     AddRandomTile();
-    if (bestScore > previousBestScore)
-        FindLeaderboardProvider()?.SubmitBestScore(bestScore);
+    var bestRecordImproved = UpdateBestScoreTime();
+    if (bestRecordImproved || bestScore > previousBestScore)
+        FindLeaderboardProvider()?.SubmitBestScore(CreateLeaderboardScore(bestScore, bestScoreTime));
 
     if (HasNoMoves())
         gameOver = true;
@@ -477,6 +488,30 @@ private int[] MergeLine(int[] values)
     return merged;
 }
 
+private bool UpdateBestScoreTime()
+{
+    if (score <= 0 || score != bestScore)
+        return false;
+
+    var elapsedWholeSeconds = Mathf.FloorToInt(elapsedSeconds);
+    if (bestScoreTime >= 0f && elapsedWholeSeconds >= bestScoreTime)
+        return false;
+
+    bestScoreTime = elapsedWholeSeconds;
+    PlayerPrefs.SetFloat(BestScoreTimeKey, bestScoreTime);
+    PlayerPrefs.Save();
+    return true;
+}
+
+private static long CreateLeaderboardScore(int points, float timeSeconds)
+{
+    var seconds = timeSeconds < 0f
+        ? LeaderboardTimeBaseSeconds - 1
+        : Mathf.Clamp(Mathf.FloorToInt(timeSeconds), 0, LeaderboardTimeBaseSeconds - 1);
+    var timeBonus = LeaderboardTimeBaseSeconds - 1 - seconds;
+    return (long)points * LeaderboardTimeBaseSeconds + timeBonus;
+}
+
 private void AddRandomTile(bool startingTile = false)
 {
     var emptyCells = new System.Collections.Generic.List<Vector2Int>();
@@ -573,6 +608,8 @@ private void DrawGamePage()
     if (boardSize + fixedElementsHeight > availableHeight)
     {
         boardSize = Mathf.Max(260f, availableHeight - fixedElementsHeight);
+        spacing = boardSize * 0.02f;
+        titleBadgeWidth = boardSize * 0.32f;
         scoreBoxWidth = (boardSize - titleBadgeWidth - spacing * 2f) / 2f;
         scoreBoxHeight = scoreBoxWidth * 0.75f;
         headerHeight = scoreBoxHeight + scoreButtonGap + headerButtonHeight;
@@ -612,12 +649,21 @@ private void DrawGamePage()
         leaderboardStatus = null;
         NavigateTo(GamePage.Leaderboard);
     }
+    var timerStyle = new GUIStyle(scoreHeadingStyle)
+    {
+        alignment = TextAnchor.MiddleCenter,
+        fontSize = Mathf.Clamp(Mathf.RoundToInt(headerButtonHeight * 0.42f), 11, 13)
+    };
+    GUI.Label(new Rect(boardLeft, headerButtonY, titleBadgeWidth, headerButtonHeight), FormatElapsedTime(), timerStyle);
     buttonStyle.fontSize = originalButtonFontSize;
 
     // 2. İPUCU METNİ
     var helpTextTop = headerButtonY + headerButtonHeight + 8f;
     gameHintStyle.fontSize = 14;
-    GUI.Label(new Rect(boardLeft, helpTextTop, boardSize, helpTextHeight), Text("mergeHelp"), gameHintStyle);
+    var hintRect = new Rect(boardLeft, helpTextTop, boardSize, helpTextHeight);
+    while (gameHintStyle.fontSize > 10 && gameHintStyle.CalcSize(new GUIContent(Text("mergeHelp"))).x > hintRect.width)
+        gameHintStyle.fontSize--;
+    GUI.Label(hintRect, Text("mergeHelp"), gameHintStyle);
 
     // 3. 4x4 OYUN TAHTASI (EKRANA TAM OTURAN)
     var boardY = helpTextTop + helpTextHeight + 6f;
@@ -906,9 +952,25 @@ private void DrawScorePanel(Rect rect, string heading, int value)
     DrawSolidRect(rect, ThemePanel());
     scoreHeadingStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(rect.height * 0.22f), 10, 14);
     GUI.Label(new Rect(rect.x + 2f, rect.y + 3f, rect.width - 4f, rect.height * 0.36f), heading, scoreHeadingStyle);
-    tileLabelStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(rect.height * 0.42f), 16, 26);
-    tileLabelStyle.normal.textColor = ThemeText();
-    GUI.Label(new Rect(rect.x + 2f, rect.y + rect.height * 0.34f, rect.width - 4f, rect.height * 0.62f), value.ToString(), tileLabelStyle);
+    var valueStyle = new GUIStyle(tileLabelStyle)
+    {
+        fontSize = Mathf.Clamp(Mathf.RoundToInt(rect.height * 0.3f), 10, 20)
+    };
+    var valueWidth = rect.width - 8f;
+    while (valueStyle.fontSize > 8 && valueStyle.CalcSize(new GUIContent("99999")).x > valueWidth)
+        valueStyle.fontSize--;
+    valueStyle.normal.textColor = ThemeText();
+    GUI.Label(new Rect(rect.x + 4f, rect.y + rect.height * 0.34f, valueWidth, rect.height * 0.62f), value.ToString(), valueStyle);
+}
+
+private string FormatElapsedTime()
+{
+    var totalSeconds = Mathf.FloorToInt(elapsedSeconds);
+    return string.Format(
+        "{0:00}:{1:00}:{2:00}",
+        totalSeconds / 3600,
+        (totalSeconds / 60) % 60,
+        totalSeconds % 60);
 }
 
 private void DrawSolidRect(Rect rect, Color color)

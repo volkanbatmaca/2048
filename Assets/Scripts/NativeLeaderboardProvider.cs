@@ -6,7 +6,7 @@ using UnityEngine.SocialPlatforms;
 public sealed class NativeLeaderboardProvider : MonoBehaviour, INativeLeaderboardProvider
 {
     private NativeLeaderboardSettings settings;
-    private int pendingBestScore;
+    private long pendingBestScore;
     private bool isAuthenticating;
 
     public bool IsConfigured => PlatformIsSupported && !string.IsNullOrWhiteSpace(LeaderboardId);
@@ -50,7 +50,7 @@ public sealed class NativeLeaderboardProvider : MonoBehaviour, INativeLeaderboar
 #endif
     }
 
-    public void SubmitBestScore(int score)
+    public void SubmitBestScore(long score)
     {
         if (!IsConfigured || score <= 0)
             return;
