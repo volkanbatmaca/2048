@@ -559,12 +559,12 @@ private void DrawGamePage()
     var scoreBoxWidth = (boardSize - titleBadgeWidth - spacing * 2f) / 2f;
 
     var scoreBoxHeight = scoreBoxWidth * 0.75f;
-    var headerButtonHeight = 36f;
+    var headerButtonHeight = 32f;
     var scoreButtonGap = 6f;
     var headerHeight = scoreBoxHeight + scoreButtonGap + headerButtonHeight;
 
     var helpTextHeight = 24f;
-    var controlHeight = Mathf.Clamp(boardSize * 0.13f, 44f, 54f);
+    var controlHeight = headerButtonHeight;
     var controlGap = 8f;
     var privacyHeight = showPrivacyOptions ? 36f : 0f;
 
@@ -578,7 +578,7 @@ private void DrawGamePage()
         headerHeight = scoreBoxHeight + scoreButtonGap + headerButtonHeight;
     }
 
-    var topMargin = Mathf.Max(Screen.safeArea.y, (availableHeight - (boardSize + fixedElementsHeight)) / 2f + 10f);
+    var topMargin = Mathf.Max(Screen.safeArea.y, (availableHeight - (boardSize + fixedElementsHeight)) / 2f + 10f) + 14f;
     var boardLeft = (Screen.width - boardSize) / 2f;
 
     // 1. ÜST HEADER ALANI (2048 Logosu, Skor, En İyi)
@@ -653,12 +653,15 @@ private void DrawMenuPage()
     var titleY = Mathf.Max(36f, Screen.height * 0.13f);
     titleStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(width * 0.19f), 48, 78);
     GUI.Label(new Rect(x, titleY, width, 96f), "2048", titleStyle);
-    GUI.Label(new Rect(x, titleY + 88f, width, 34f), Text("menu"), labelStyle);
-
-    var buttonWidth = Mathf.Min(width, 300f);
+    var buttonWidth = StandardActionButtonWidth();
     var buttonX = (Screen.width - buttonWidth) / 2f;
+    var buttonHeight = StandardActionButtonHeight();
+    var menuLabel = Text("menu");
+    var menuButtonRect = new Rect(buttonX, titleY + 88f, buttonWidth, buttonHeight);
+    if (DrawStyledButton(menuButtonRect, menuLabel))
+        NavigateTo(GamePage.Game);
+
     var buttonY = titleY + 150f;
-    var buttonHeight = Mathf.Clamp(Screen.height * 0.075f, 42f, 54f);
     var gap = 10f;
     if (DrawStyledButton(new Rect(buttonX, buttonY, buttonWidth, buttonHeight), Text("resume")))
         NavigateTo(GamePage.Game);
@@ -677,8 +680,6 @@ private void DrawMenuPage()
     if (DrawStyledButton(new Rect(buttonX, buttonY + (buttonHeight + gap) * 4f, buttonWidth, buttonHeight), Text("howToPlay")))
         NavigateTo(GamePage.HowToPlay);
 
-    var bannerHeight = bannerProvider != null ? bannerProvider.ReservedBannerHeightPixels : 50f;
-    GUI.Label(new Rect(x, Screen.height - bannerHeight - 72f, width, 36f), Text("best") + ": " + bestScore, labelStyle);
 }
 
 private void DrawSettingsPage()
@@ -686,11 +687,11 @@ private void DrawSettingsPage()
     DrawPageHeader(Text("settings"));
     var width = Mathf.Min(Screen.width - 40f, 440f);
     var x = (Screen.width - width) / 2f;
-    var rowY = Screen.height * 0.31f;
-    var rowHeight = 100f;
+    var rowY = Mathf.Max(Screen.height * 0.29f, 150f);
+    var rowHeight = 88f;
     DrawSelectorRow(new Rect(x, rowY, width, rowHeight), Text("language"), Languages[languageIndex],
         () => ChangeLanguage(-1), () => ChangeLanguage(1));
-    DrawSelectorRow(new Rect(x, rowY + rowHeight + 24f, width, rowHeight), Text("theme"), Text(ThemeKeys[themeIndex]),
+    DrawSelectorRow(new Rect(x, rowY + rowHeight + 16f, width, rowHeight), Text("theme"), Text(ThemeKeys[themeIndex]),
         () => ChangeTheme(-1), () => ChangeTheme(1));
     DrawBackButton();
 }
@@ -710,9 +711,16 @@ private void DrawLeaderboardPage()
     if (!string.IsNullOrEmpty(statusText))
         GUI.Label(new Rect(x, infoY + 164f, width, 56f), statusText, labelStyle);
 
+    var actionButtonWidth = StandardActionButtonWidth();
+    var actionButtonHeight = StandardActionButtonHeight();
+    var actionButtonX = (Screen.width - actionButtonWidth) / 2f;
     var bannerHeight = bannerProvider != null ? bannerProvider.ReservedBannerHeightPixels : 50f;
-    var buttonY = Mathf.Min(infoY + 228f, Screen.height - bannerHeight - 160f);
-    if (DrawStyledButton(new Rect(x + (width - Mathf.Min(width, 300f)) / 2f, buttonY, Mathf.Min(width, 300f), 50f), Text("openLeaderboard")))
+    var safeAreaBottom = Screen.height - Screen.safeArea.yMin - bannerHeight;
+    const float bottomMargin = 12f;
+    const float buttonGap = 8f;
+    var backButtonY = safeAreaBottom - bottomMargin - actionButtonHeight;
+    var actionButtonY = backButtonY - buttonGap - actionButtonHeight;
+    if (DrawStyledButton(new Rect(actionButtonX, actionButtonY, actionButtonWidth, actionButtonHeight), Text("openLeaderboard")))
     {
         if (!configured)
             leaderboardStatus = Text("leaderboardSetup");
@@ -727,7 +735,10 @@ private void DrawLeaderboardPage()
         }
     }
 
-    DrawBackButton();
+    if (DrawStyledButton(
+        new Rect(actionButtonX, backButtonY, actionButtonWidth, actionButtonHeight),
+        Text("back")))
+        NavigateBack();
 }
 
 private void DrawHowToPlayPage()
@@ -752,8 +763,8 @@ private void DrawBackButton()
     var safeAreaTop = Screen.height - safeArea.yMax;
     var bannerHeight = bannerProvider != null ? bannerProvider.ReservedBannerHeightPixels : 50f;
     var safeAreaBottom = Screen.height - safeArea.yMin - bannerHeight;
-    var buttonWidth = Mathf.Min(Screen.width - 48f, Mathf.Clamp(Screen.width * 0.62f, 240f, 360f));
-    var buttonHeight = Mathf.Clamp(Screen.height * 0.075f, 52f, 68f);
+    var buttonWidth = StandardActionButtonWidth();
+    var buttonHeight = StandardActionButtonHeight();
     var bottomMargin = Mathf.Clamp(Screen.height * 0.04f, 20f, 36f);
     var preferredY = safeAreaTop + safeArea.height * 0.82f;
     var lastVisibleY = safeAreaBottom - bottomMargin - buttonHeight;
@@ -792,13 +803,29 @@ private void NavigateBack()
 private void DrawSelectorRow(Rect rect, string label, string value, System.Action previous, System.Action next)
 {
     DrawSolidRect(rect, ThemePanel());
-    GUI.Label(new Rect(rect.x + 8f, rect.y + 8f, rect.width - 16f, 28f), label, labelStyle);
-    var arrowWidth = Mathf.Min(58f, rect.width * 0.18f);
-    if (DrawStyledButton(new Rect(rect.x + 8f, rect.y + 42f, arrowWidth, 48f), "<"))
+    GUI.Label(new Rect(rect.x + 12f, rect.y + 4f, rect.width - 24f, 24f), label, scoreHeadingStyle);
+    var arrowSize = StandardActionButtonHeight();
+    var arrowY = rect.y + rect.height - arrowSize - 8f;
+    var arrowWidth = Mathf.Min(48f, rect.width * 0.18f);
+    var previousRect = new Rect(rect.x + 8f, arrowY, arrowWidth, arrowSize);
+    var nextRect = new Rect(rect.xMax - arrowWidth - 8f, arrowY, arrowWidth, arrowSize);
+    if (DrawStyledButton(previousRect, "<"))
         previous();
-    if (DrawStyledButton(new Rect(rect.xMax - arrowWidth - 8f, rect.y + 42f, arrowWidth, 48f), ">"))
+    if (DrawStyledButton(nextRect, ">"))
         next();
-    GUI.Label(new Rect(rect.x + arrowWidth + 18f, rect.y + 42f, rect.width - (arrowWidth * 2f) - 36f, 48f), value, labelStyle);
+    var valueRect = new Rect(previousRect.xMax + 8f, arrowY, nextRect.xMin - previousRect.xMax - 16f, arrowSize);
+    DrawSolidRect(valueRect, ThemeEmptyTile());
+    GUI.Label(valueRect, value, labelStyle);
+}
+
+private float StandardActionButtonWidth()
+{
+    return Mathf.Min(Screen.width - 48f, 300f);
+}
+
+private static float StandardActionButtonHeight()
+{
+    return 32f;
 }
 
 private void ChangeLanguage(int direction)
