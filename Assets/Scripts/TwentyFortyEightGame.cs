@@ -626,7 +626,7 @@ private void DrawGamePage()
     var titleBadgeStyle = new GUIStyle(headerStyle)
     {
         alignment = TextAnchor.MiddleCenter,
-        fontSize = Mathf.Clamp(Mathf.RoundToInt(scoreBoxHeight * 0.5f), 24, 42),
+        fontSize = Mathf.Max(22, Mathf.Clamp(Mathf.RoundToInt(scoreBoxHeight * 0.5f), 24, 42) - 3),
         fontStyle = FontStyle.Bold,
         wordWrap = false,
         normal = { textColor = Color.white }
@@ -954,7 +954,7 @@ private void DrawScorePanel(Rect rect, string heading, int value)
     GUI.Label(new Rect(rect.x + 2f, rect.y + 3f, rect.width - 4f, rect.height * 0.36f), heading, scoreHeadingStyle);
     var valueStyle = new GUIStyle(tileLabelStyle)
     {
-        fontSize = Mathf.Clamp(Mathf.RoundToInt(rect.height * 0.3f), 10, 20)
+        fontSize = Mathf.Max(8, Mathf.Clamp(Mathf.RoundToInt(rect.height * 0.3f), 10, 20) - 3)
     };
     var valueWidth = rect.width - 8f;
     while (valueStyle.fontSize > 8 && valueStyle.CalcSize(new GUIContent("99999")).x > valueWidth)
