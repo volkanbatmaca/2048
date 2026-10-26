@@ -12,6 +12,8 @@ public sealed class AdMobRewardedAdProvider : MonoBehaviour, IRewardedAdProvider
     private const string IOSRewardedAdUnitId = "ca-app-pub-1755657809365069/5266545136";
     private const string AndroidBannerTestAdUnitId = "ca-app-pub-3940256099942544/1033173712";
     private const string IOSBannerTestAdUnitId = "ca-app-pub-3940256099942544/4411468910";
+    private const string AndroidBannerAdUnitId = "ca-app-pub-1755657809365069/7768655204";
+    private const string IOSBannerAdUnitId = "ca-app-pub-1755657809365069/7848546255";
     private const float StandardBannerHeightDp = 50f;
 
     private RewardedAd rewardedAd;
@@ -264,6 +266,10 @@ public sealed class AdMobRewardedAdProvider : MonoBehaviour, IRewardedAdProvider
         return AndroidBannerTestAdUnitId;
 #elif UNITY_IOS && DEVELOPMENT_BUILD
         return IOSBannerTestAdUnitId;
+#elif UNITY_ANDROID
+        return AndroidBannerAdUnitId;
+#elif UNITY_IOS
+        return IOSBannerAdUnitId;
 #else
         return null;
 #endif
