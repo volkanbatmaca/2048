@@ -53,19 +53,19 @@ private static readonly string[][] ThemeColors =
 };
 private static readonly string[][] TilePalettes =
 {
-    new[] { "E3ECE5", "CDDDD1", "B5CEBD", "9CBFA9", "86AE96", "709A82", "E4DDBD", "D7CCA4", "C9BA8E", "B9A777", "A79563" },
-    new[] { "F0EAD3", "E5DDB9", "D9CE9F", "CCBD86", "BFAE70", "AD9B5E", "EAD7A4", "DDC785", "CFB66B", "BFA457", "AE9148" },
-    new[] { "F1E2DE", "E8CCC5", "DDB6AD", "D2A198", "C58C82", "B87970", "E6C2B8", "DCA99D", "CF9087", "BF7973", "A96562" },
-    new[] { "E0EAF0", "C9DCE6", "B2CFDE", "9BBFD2", "83ADC4", "6C9BB6", "D7E2E8", "BFCFD9", "A6BAC8", "8EA5B5", "778F9F" },
-    new[] { "F1E4D8", "E8D2BE", "DDBFA3", "D2AD8D", "C69C78", "B98B67", "E9D0B5", "DDBA95", "D0A57B", "C08E64", "AD7852" }
+    new[] { "E3ECE5", "CDDDD1", "B5CEBD", "9CBFA9", "86AE96", "709A82", "5F876F", "527860", "456A52", "395B46", "2E4B3A" },
+    new[] { "F0EAD3", "E5DDB9", "D9CE9F", "CCBD86", "BFAE70", "AD9B5E", "9D8A4D", "8C793F", "7A6833", "695829", "58491F" },
+    new[] { "F1E2DE", "E8CCC5", "DDB6AD", "D2A198", "C58C82", "B87970", "A96562", "995653", "874747", "763C3C", "653232" },
+    new[] { "E0EAF0", "C9DCE6", "B2CFDE", "9BBFD2", "83ADC4", "6C9BB6", "5D8499", "4F748A", "42647A", "36556A", "2B465A" },
+    new[] { "F1E4D8", "E8D2BE", "DDBFA3", "D2AD8D", "C69C78", "B98B67", "A77856", "966847", "855839", "744B2E", "633E24" }
 };
 private static readonly string[][] TileTextPalettes =
 {
-    new[] { "49675C", "3F6B5A", "315E51", "285647", "23483F", "1D4035", "6A5634", "604B2E", "55422C", "493D2E", "40372A" },
-    new[] { "6B6247", "625A3F", "595237", "504A31", "47432B", "3E3B27", "715C32", "66522D", "5B4929", "504126", "463A23" },
-    new[] { "714F4A", "684640", "5F3E39", "563733", "4D302D", "442A27", "74443C", "693B35", "5E3430", "532E2A", "482825" },
-    new[] { "4C6370", "435D6B", "3A5766", "325160", "2A4B5A", "234554", "4A5B64", "42535D", "3A4B56", "32434F", "2B3B47" },
-    new[] { "705A48", "67513F", "5E4937", "55412F", "4C3928", "433222", "735239", "684832", "5D3F2C", "523726", "473020" }
+    new[] { "49675C", "3F6B5A", "315E51", "285647", "23483F", "1D4035", "F2F5F0", "F2F5F0", "F2F5F0", "F2F5F0", "F2F5F0" },
+    new[] { "6B6247", "625A3F", "595237", "504A31", "47432B", "3E3B27", "F5F2E8", "F5F2E8", "F5F2E8", "F5F2E8", "F5F2E8" },
+    new[] { "714F4A", "684640", "5F3E39", "563733", "4D302D", "442A27", "F5EFED", "F5EFED", "F5EFED", "F5EFED", "F5EFED" },
+    new[] { "4C6370", "435D6B", "3A5766", "325160", "2A4B5A", "234554", "EEF3F6", "EEF3F6", "EEF3F6", "EEF3F6", "EEF3F6" },
+    new[] { "705A48", "67513F", "5E4937", "55412F", "4C3928", "433222", "F7F1EB", "F7F1EB", "F7F1EB", "F7F1EB", "F7F1EB" }
 };
 private static readonly Dictionary<string, string[]> LocalizedText = new Dictionary<string, string[]>
 {
@@ -701,9 +701,7 @@ private void DrawGamePage()
     // 4. ALT KONTROL BUTONLARI (Geri Al & Yeni Oyun)
     var controlsWidth = boardSize;
     var undoRect = new Rect(boardLeft, boardRect.yMax + 14f, controlsWidth, controlHeight);
-    var undoLabel = freeUndosUsed < FreeUndoLimit
-        ? Text("undo") + " (" + (FreeUndoLimit - freeUndosUsed) + ")"
-        : Text("watchUndo");
+    var undoLabel = UndoButtonLabel();
 
     if (DrawStyledButton(undoRect, undoLabel))
         RequestUndo();
@@ -953,7 +951,7 @@ private void DrawBoard(Rect boardRect)
     if (!string.IsNullOrEmpty(adNotice))
         DrawOverlay(boardRect, adNotice, Text("okay"));
     else if (gameOver)
-        DrawOverlay(boardRect, Text("noMoves"), Text("newGame"));
+        DrawOverlay(boardRect, Text("noMoves"), UndoButtonLabel());
     else if (hasWon && !continuedAfterWin)
         DrawOverlay(boardRect, Text("win"), Text("continue"));
 }
@@ -969,10 +967,22 @@ private void DrawOverlay(Rect rect, string message, string buttonText)
         if (!string.IsNullOrEmpty(adNotice))
             adNotice = null;
         else if (gameOver)
-            NewGame();
+        {
+            if (undoHistory.Count > 0)
+                RequestUndo();
+            else
+                NewGame();
+        }
         else
             continuedAfterWin = true;
     }
+}
+
+private string UndoButtonLabel()
+{
+    return freeUndosUsed < FreeUndoLimit
+        ? Text("undo") + " (" + (FreeUndoLimit - freeUndosUsed) + ")"
+        : Text("watchUndo");
 }
 
 private void DrawScorePanel(Rect rect, string heading, int value)
