@@ -23,6 +23,7 @@ public sealed class AdMobRewardedAdProvider : MonoBehaviour, IRewardedAdProvider
     private bool initializationStarted;
     private bool isLoadingAd;
     private bool isShowingAd;
+    private bool rewardEarned;
     private bool bannerShouldBeVisible;
     private bool bannerLoadStarted;
 
@@ -46,6 +47,7 @@ public sealed class AdMobRewardedAdProvider : MonoBehaviour, IRewardedAdProvider
         DestroyRewardedAd();
         DestroyBannerAd();
         pendingRewardCallback = null;
+        isShowingAd = false;
     }
 
     public void SetBannerVisible(bool visible)
@@ -200,7 +202,10 @@ public sealed class AdMobRewardedAdProvider : MonoBehaviour, IRewardedAdProvider
                 return;
 
             DestroyRewardedAd();
-            CompletePendingReward(false);
+            isShowingAd = false;
+            var earnedReward = rewardEarned;
+            rewardEarned = false;
+            CompletePendingReward(earnedReward);
             LoadRewardedAd();
         };
 
@@ -211,6 +216,8 @@ public sealed class AdMobRewardedAdProvider : MonoBehaviour, IRewardedAdProvider
 
             Debug.LogError("Ödüllü reklam gösterilemedi: " + error.GetMessage());
             DestroyRewardedAd();
+            isShowingAd = false;
+            rewardEarned = false;
             CompletePendingReward(false);
             LoadRewardedAd();
         };
@@ -224,15 +231,15 @@ public sealed class AdMobRewardedAdProvider : MonoBehaviour, IRewardedAdProvider
             return;
         }
 
+        rewardEarned = false;
         isShowingAd = true;
-        rewardedAd.Show(_ => CompletePendingReward(true));
+        rewardedAd.Show(_ => rewardEarned = true);
     }
 
     private void CompletePendingReward(bool earnedReward)
     {
         var callback = pendingRewardCallback;
         pendingRewardCallback = null;
-        isShowingAd = false;
         callback?.Invoke(earnedReward);
     }
 

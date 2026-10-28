@@ -173,6 +173,7 @@ private void Awake()
     languageIndex = Mathf.Clamp(PlayerPrefs.GetInt(LanguageKey, 0), 0, Languages.Length - 1);
     themeIndex = Mathf.Clamp(PlayerPrefs.GetInt(ThemeKey, 0), 0, ThemeKeys.Length - 1);
     bannerProvider = FindAdBannerProvider();
+    bannerProvider?.SetBannerVisible(true);
     whiteTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
     whiteTexture.SetPixel(0, 0, Color.white);
     whiteTexture.Apply();
@@ -192,7 +193,6 @@ private void Update()
     ReadPointerInput();
     if (currentPage == GamePage.Game && !gameOver && (!hasWon || continuedAfterWin) && !isShowingRewardedAd)
         elapsedSeconds += Time.unscaledDeltaTime;
-    bannerProvider?.SetBannerVisible(true);
 }
 
 private void ReadKeyboardInput()
