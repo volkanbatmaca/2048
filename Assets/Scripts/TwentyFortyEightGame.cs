@@ -37,7 +37,8 @@ private const int FreeUndoLimit = 3;
 private const int LeaderboardTimeBaseSeconds = 86400;
 private const float SwipeThreshold = 50f;
 private const string BestScoreKey = "2048_best_score";
-private const string BestScoreTimeKey = "2048_best_score_time";
+private const string LeaderboardBestTileKey = "2048_leaderboard_best_tile";
+private const string LeaderboardBestTileTimeKey = "2048_leaderboard_best_tile_time";
 private const string LanguageKey = "2048_language";
 private const string ThemeKey = "2048_theme";
 
@@ -112,7 +113,8 @@ private readonly List<GamePage> pageHistory = new List<GamePage>();
 private int score;
 private int bestScore;
 private float elapsedSeconds;
-private float bestScoreTime = -1f;
+private int leaderboardBestTile;
+private float leaderboardBestTileTime = -1f;
 private int languageIndex;
 private int themeIndex;
 private int freeUndosUsed;
@@ -167,8 +169,9 @@ private static void CreateGameIfMissing()
 private void Awake()
 {
     bestScore = PlayerPrefs.GetInt(BestScoreKey, 0);
-    bestScoreTime = PlayerPrefs.HasKey(BestScoreTimeKey)
-        ? PlayerPrefs.GetFloat(BestScoreTimeKey, -1f)
+    leaderboardBestTile = PlayerPrefs.GetInt(LeaderboardBestTileKey, 0);
+    leaderboardBestTileTime = PlayerPrefs.HasKey(LeaderboardBestTileTimeKey)
+        ? PlayerPrefs.GetFloat(LeaderboardBestTileTimeKey, -1f)
         : -1f;
     languageIndex = Mathf.Clamp(PlayerPrefs.GetInt(LanguageKey, 0), 0, Languages.Length - 1);
     themeIndex = Mathf.Clamp(PlayerPrefs.GetInt(ThemeKey, 0), 0, ThemeKeys.Length - 1);
@@ -178,7 +181,8 @@ private void Awake()
     whiteTexture.SetPixel(0, 0, Color.white);
     whiteTexture.Apply();
     NewGame();
-    FindLeaderboardProvider()?.SubmitBestScore(CreateLeaderboardScore(bestScore, bestScoreTime));
+    if (leaderboardBestTile > 0)
+        FindLeaderboardProvider()?.SubmitBestScore(CreateLeaderboardScore(leaderboardBestTile, leaderboardBestTileTime));
 }
 
 private void OnDestroy()
@@ -307,7 +311,6 @@ private void Move(Direction direction)
     if (isShowingRewardedAd || gameOver || (hasWon && !continuedAfterWin))
         return;
 
-    var previousBestScore = bestScore;
     var snapshot = CaptureSnapshot();
     var changed = false;
     for (var line = 0; line < Size; line++)
@@ -345,9 +348,6 @@ private void Move(Direction direction)
 
     undoHistory.Add(snapshot);
     AddRandomTile();
-    var bestRecordImproved = UpdateBestScoreTime();
-    if (bestRecordImproved || bestScore > previousBestScore)
-        FindLeaderboardProvider()?.SubmitBestScore(CreateLeaderboardScore(bestScore, bestScoreTime));
 
     if (HasNoMoves())
         gameOver = true;
@@ -483,6 +483,7 @@ private int[] MergeLine(int[] values)
             value *= 2;
             score += value;
             source += 2;
+            RecordLeaderboardTile(value);
             if (value >= WinTile)
                 hasWon = true;
         }
@@ -503,28 +504,34 @@ private int[] MergeLine(int[] values)
     return merged;
 }
 
-private bool UpdateBestScoreTime()
+private void RecordLeaderboardTile(int tileValue)
 {
-    if (score <= 0 || score != bestScore)
-        return false;
+    if (tileValue < WinTile)
+        return;
 
     var elapsedWholeSeconds = Mathf.FloorToInt(elapsedSeconds);
-    if (bestScoreTime >= 0f && elapsedWholeSeconds >= bestScoreTime)
-        return false;
+    if (tileValue < leaderboardBestTile ||
+        (tileValue == leaderboardBestTile &&
+         leaderboardBestTileTime >= 0f &&
+         elapsedWholeSeconds >= leaderboardBestTileTime))
+        return;
 
-    bestScoreTime = elapsedWholeSeconds;
-    PlayerPrefs.SetFloat(BestScoreTimeKey, bestScoreTime);
+    leaderboardBestTile = tileValue;
+    leaderboardBestTileTime = elapsedWholeSeconds;
+    PlayerPrefs.SetInt(LeaderboardBestTileKey, leaderboardBestTile);
+    PlayerPrefs.SetFloat(LeaderboardBestTileTimeKey, leaderboardBestTileTime);
     PlayerPrefs.Save();
-    return true;
+    FindLeaderboardProvider()?.SubmitBestScore(
+        CreateLeaderboardScore(leaderboardBestTile, leaderboardBestTileTime));
 }
 
-private static long CreateLeaderboardScore(int points, float timeSeconds)
+private static long CreateLeaderboardScore(int tileValue, float timeSeconds)
 {
     var seconds = timeSeconds < 0f
         ? LeaderboardTimeBaseSeconds - 1
         : Mathf.Clamp(Mathf.FloorToInt(timeSeconds), 0, LeaderboardTimeBaseSeconds - 1);
     var timeBonus = LeaderboardTimeBaseSeconds - 1 - seconds;
-    return (long)points * LeaderboardTimeBaseSeconds + timeBonus;
+    return (long)tileValue * LeaderboardTimeBaseSeconds + timeBonus;
 }
 
 private void AddRandomTile(bool startingTile = false)
