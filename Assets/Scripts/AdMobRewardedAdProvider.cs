@@ -37,7 +37,9 @@ public sealed class AdMobRewardedAdProvider : MonoBehaviour, IRewardedAdProvider
     {
         MobileAds.SetRequestConfiguration(new RequestConfiguration
         {
-            MaxAdContentRating = MaxAdContentRating.G
+            MaxAdContentRating = MaxAdContentRating.G,
+            TagForChildDirectedTreatment = TagForChildDirectedTreatment.True,
+            TagForUnderAgeOfConsent = TagForUnderAgeOfConsent.True
         });
         RequestConsent();
     }
